@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Vote</title>
+</head>
+<body>
+<h2>投票系统</h2>
+<ul>
+    {% for key,player in players.items() %}
+        <li id="user_{{ key }}" ondblclick="vote({{ key }})">{{ player.name }} : <span>{{ player.count }}</span></li>
+    {% endfor %}
+</ul>
+<script src="{{ url_for('static',filename='jquery/jquery-3.2.1.min.js') }}"></script>
+<script>
+    setInterval("getMsg()", 2000);
+
+    function getMsg() {
+        $.ajax({
+            url: '/message',
+            success: function (data) {
+                console.log((data));
+                if (data.msg) {
+                    id = data.msg.user_id;
+                    count = data.msg.count;
+                    $('#user_' + id).find('span').html(count);
+                }
+            }
+        })
+    }
+
+    function vote(id) {
+        $.ajax({
+            url: '/vote',
+            data: {
+                user_id: id
+            },
+            success: function (data) {
+                console.log(data);
+            }
+        })
+    }
+</script>
+</body>
+</html>
