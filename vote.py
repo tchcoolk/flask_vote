@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, session, redirect,jsonify
 from queue import Queue,Empty
+import uuid
 
 app = Flask(__name__)
 app.debug = True
@@ -40,8 +41,9 @@ def login():
     else:
         username = request.form.get('username')
         if username:
-            session['user'] = username
-            USER_DICT[username] = Queue()
+            uid = uuid.uuid4()
+            session['user'] = uid
+            USER_DICT[uid] = Queue()
             return redirect('/index')
         else:
             return redirect('/login')
@@ -69,7 +71,6 @@ def vote():
     user_id = int(request.args.get('user_id'))
     try:
         PLAYERS[user_id]['count'] += 1
-        username = session.get('user')
         for key,q in USER_DICT.items():
             q.put({'user_id': user_id, 'count': PLAYERS[user_id]['count']})
         return '投票成功'
