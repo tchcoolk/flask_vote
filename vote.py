@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request, session, redirect,jsonify
-from queue import Queue,Empty
+from flask import Flask, render_template, request, session, redirect, jsonify
+from geventwebsocket.handler import WebSocketHandler
+from gevent.pywsgi import WSGIServer
+import json
 import uuid
 
 app = Flask(__name__)
@@ -12,7 +14,7 @@ PLAYERS = {
     2: {'name': 'root', 'count': 0}
 }
 
-USER_DICT = {
+WS_DICT = {
 
 }
 
@@ -43,7 +45,7 @@ def login():
         if username:
             uid = uuid.uuid4()
             session['user'] = uid
-            USER_DICT[uid] = Queue()
+            # USER_DICT[uid] = Queue()
             return redirect('/index')
         else:
             return redirect('/login')
@@ -56,27 +58,40 @@ def index():
 
 @app.route('/message')
 def message():
-    msg = {'status': True, 'msg': None}
-    try:
-        q = USER_DICT[session.get('user')].get(timeout=5)
-        msg['msg'] = q
-    except Empty:
-        pass
-    print(jsonify(msg),type(jsonify(msg)))
-    return jsonify(msg)
+    if request.environ.get('wsgi.websocket'):
+        ws = request.environ['wsgi.websocket']
+        # 刚连接成功
+        uid = session.get('user')
+        WS_DICT[uid] = ws
 
+        while True:
+            # 等待用户发送消息,并接受
+            player_id = ws.receive()
+            # 如果客户端发送了关闭或者异常，那么message=None
 
-@app.route('/vote')
-def vote():
-    user_id = int(request.args.get('user_id'))
-    try:
-        PLAYERS[user_id]['count'] += 1
-        for key,q in USER_DICT.items():
-            q.put({'user_id': user_id, 'count': PLAYERS[user_id]['count']})
-        return '投票成功'
-    except Exception as e:
-        return '投票失败'
+            if player_id == None:
+                del WS_DICT[uid]
+                break
+
+            player_id = int(player_id)
+            print(player_id)
+
+            old = PLAYERS[player_id]['count']
+            new = old + 1
+            PLAYERS[player_id]['count'] = new
+
+            response = {'player': player_id, 'count': new}
+            print(response)
+
+            # 向客户端推送消息
+            # k -> 用户唯一标识
+            # v -> 用户对应的ws
+            for k, v in WS_DICT.items():
+                v.send(json.dumps(response))
+
+    return 'Connected!'
 
 
 if __name__ == '__main__':
-    app.run(threaded=True)
+    http_server = WSGIServer(('127.0.0.1', 5000), app, handler_class=WebSocketHandler)
+    http_server.serve_forever()

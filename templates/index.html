@@ -8,42 +8,54 @@
 </head>
 <body>
 <h2>投票系统</h2>
+<a onclick="closeConn();">关闭连接</a>
+<a onclick="createConn();">创建连接</a>
 <ul>
     {% for key,player in players.items() %}
         <li id="user_{{ key }}" ondblclick="vote({{ key }})">{{ player.name }} : <span>{{ player.count }}</span></li>
     {% endfor %}
 </ul>
 <script src="{{ url_for('static',filename='jquery/jquery-3.2.1.min.js') }}"></script>
-<script src="{{ url_for('static',filename='highcharts.js') }}"></script>
 <script>
-    getMsg();
+    if (WebSocket) {
 
-    function getMsg() {
-        $.ajax({
-            url: '/message',
-            success: function (data) {
-                console.log((data));
-                if (data.msg) {
-                    id = data.msg.user_id;
-                    count = data.msg.count;
-                    $('#user_' + id).find('span').html(count);
-                }
-                getMsg();
-            }
-        })
+    }
+    var socket = null;
+
+    function socketInit() {
+        socket.onopen = function (ev) {
+            /* 与服务器端连接成功后，自动执行 */
+        };
+
+        socket.onmessage = function (ev) {
+            /* 服务器端向客户端发送数据时，自动执行 */
+            var response = JSON.parse(ev.data); // data = {'player': message, 'count': new}
+            var id = '#user_' + response.player;
+            var count = response.count;
+            console.log(id, count);
+            $(id).find('span').text(count);
+        };
+
+        socket.onclose = function (ev) {
+            /* 服务器端主动断开连接时，自动执行 */
+        };
     }
 
     function vote(id) {
-        $.ajax({
-            url: '/vote',
-            data: {
-                user_id: id
-            },
-            success: function (data) {
-                console.log(data);
-            }
-        })
+        /* 给id投票 */
+        console.log(id);
+        socket.send(id);
     }
+
+    function closeConn() {
+        socket.close()
+    }
+
+    function createConn() {
+        socket = new WebSocket('ws://127.0.0.1:5000/message');
+        socketInit();
+    }
+
 </script>
 </body>
 </html>
